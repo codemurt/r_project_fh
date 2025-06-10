@@ -1,0 +1,440 @@
+---
+title: "Final_project"
+author: "Lebedev Egor"
+date: "2025-05-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exploratory Data Analysis for Funny News Headlines Generation Project
+
+```{r}
+library(tidyverse)
+library(jsonlite)
+library(lubridate)
+library(ggplot2)
+library(scales)
+library(knitr)
+library(DT)
+```
+
+## 1. News Data Analysis (dev.csv)
+
+```{r}
+news_data <- read_csv("dev.csv")
+
+glimpse(news_data)
+```
+
+### 1.1 Basic Statistics
+
+```{r}
+cat("Number of news articles:", nrow(news_data), "\n")
+cat("Number of variables:", ncol(news_data), "\n")
+
+missing_values <- sapply(news_data, function(x) sum(is.na(x)))
+missing_values_df <- data.frame(
+  Variable = names(missing_values),
+  Missing_Count = missing_values,
+  Percentage = round(missing_values/nrow(news_data)*100, 2)
+)
+datatable(missing_values_df)
+```
+
+### 1.2 Publication Date Analysis
+
+```{r}
+news_data <- news_data %>%
+  mutate(
+    pub_date = ymd_hms(pub_date),
+    pub_year = year(pub_date),
+    pub_month = month(pub_date, label = TRUE),
+    pub_day = day(pub_date),
+    pub_weekday = wday(pub_date, label = TRUE)
+  )
+
+ggplot(news_data, aes(x = pub_year)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Articles by Year",
+       x = "Year",
+       y = "Count") +
+  theme_minimal()
+
+ggplot(news_data, aes(x = pub_month)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Articles by Month",
+       x = "Month",
+       y = "Count") +
+  theme_minimal()
+
+ggplot(news_data, aes(x = pub_weekday)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Articles by Weekday",
+       x = "Weekday",
+       y = "Count") +
+  theme_minimal()
+```
+
+### 1.3 Text Length Analysis
+
+```{r}
+news_data <- news_data %>%
+  mutate(
+    abstract_length = str_count(abstract),
+    headline_length = str_count(headline),
+    lead_paragraph_length = str_count(lead_paragraph)
+  )
+
+text_length_summary <- news_data %>%
+  select(abstract_length, headline_length, lead_paragraph_length) %>%
+  summary()
+kable(text_length_summary)
+
+ggplot(news_data, aes(x = abstract_length)) +
+  geom_histogram(fill = "steelblue", bins = 30) +
+  labs(title = "Distribution of Abstract Lengths",
+       x = "Character Count",
+       y = "Frequency") +
+  theme_minimal()
+
+ggplot(news_data, aes(x = headline_length)) +
+  geom_histogram(fill = "steelblue", bins = 30) +
+  labs(title = "Distribution of Headline Lengths",
+       x = "Character Count",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+### 1.4 Section and News Desk Analysis
+
+```{r}
+section_counts <- news_data %>%
+  count(section_name, sort = TRUE) %>%
+  mutate(percentage = n / sum(n) * 100)
+
+ggplot(section_counts %>% filter(!is.na(section_name)) %>% head(10), 
+       aes(x = reorder(section_name, n), y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Top 10 Sections by Article Count",
+       x = "Section",
+       y = "Count") +
+  theme_minimal()
+
+news_desk_counts <- news_data %>%
+  count(news_desk, sort = TRUE) %>%
+  mutate(percentage = n / sum(n) * 100)
+
+ggplot(news_desk_counts %>% filter(!is.na(news_desk)) %>% head(10), 
+       aes(x = reorder(news_desk, n), y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Top 10 News Desks by Article Count",
+       x = "News Desk",
+       y = "Count") +
+  theme_minimal()
+```
+
+## 2. Films Data Analysis (films.csv)
+
+```{r}
+films_data <- read_csv("films.csv")
+glimpse(films_data)
+```
+
+### 2.1 Basic Statistics
+
+```{r}
+cat("Number of films:", nrow(films_data), "\n")
+cat("Number of variables:", ncol(films_data), "\n")
+
+missing_values_films <- sapply(films_data, function(x) sum(is.na(x)))
+missing_values_films_df <- data.frame(
+  Variable = names(missing_values_films),
+  Missing_Count = missing_values_films,
+  Percentage = round(missing_values_films/nrow(films_data)*100, 2)
+)
+datatable(missing_values_films_df)
+```
+
+### 2.2 Release Date Analysis
+
+```{r}
+films_data <- films_data %>%
+  mutate(
+    release_date = ymd(release_date),
+    release_year = year(release_date),
+    release_month = month(release_date, label = TRUE)
+  )
+
+ggplot(films_data, aes(x = release_year)) +
+  geom_bar(fill = "darkorange") +
+  labs(title = "Distribution of Films by Release Year",
+       x = "Year",
+       y = "Count") +
+  theme_minimal()
+
+ggplot(films_data, aes(x = release_month)) +
+  geom_bar(fill = "darkorange") +
+  labs(title = "Distribution of Films by Release Month",
+       x = "Month",
+       y = "Count") +
+  theme_minimal()
+```
+
+### 2.3 Ratings and Popularity
+
+```{r}
+rating_summary <- films_data %>%
+  select(vote_average, vote_count, popularity) %>%
+  summary()
+kable(rating_summary)
+
+ggplot(films_data, aes(x = vote_average)) +
+  geom_histogram(fill = "darkorange", bins = 30) +
+  labs(title = "Distribution of Vote Averages",
+       x = "Average Rating",
+       y = "Count") +
+  theme_minimal()
+
+ggplot(films_data, aes(x = popularity)) +
+  geom_histogram(fill = "darkorange", bins = 30) +
+  labs(title = "Distribution of Popularity Scores",
+       x = "Popularity",
+       y = "Count") +
+  theme_minimal()
+```
+
+### 2.4 Budget and Revenue Analysis
+
+```{r}
+financial_summary <- films_data %>%
+  select(budget, revenue, runtime) %>%
+  summary()
+kable(financial_summary)
+
+ggplot(films_data, aes(x = budget, y = revenue)) +
+  geom_point(alpha = 0.6, color = "darkorange") +
+  scale_x_continuous(labels = dollar) +
+  scale_y_continuous(labels = dollar) +
+  labs(title = "Film Revenue vs Budget",
+       x = "Budget",
+       y = "Revenue") +
+  theme_minimal()
+
+ggplot(films_data, aes(x = runtime)) +
+  geom_histogram(fill = "darkorange", bins = 30) +
+  labs(title = "Distribution of Film Runtimes",
+       x = "Runtime (minutes)",
+       y = "Count") +
+  theme_minimal()
+```
+
+### 2.5 Genre Analysis
+
+```{r}
+genres_df <- films_data %>%
+  mutate(genres = str_remove_all(genres, "\\[|\\]|\\'")) %>%
+  separate_rows(genres, sep = ", ") %>%
+  filter(genres != "")
+
+genre_counts <- genres_df %>%
+  count(genres, sort = TRUE)
+
+ggplot(genre_counts, aes(x = reorder(genres, n), y = n)) +
+  geom_bar(stat = "identity", fill = "darkorange") +
+  coord_flip() +
+  labs(title = "Film Count by Genre",
+       x = "Genre",
+       y = "Count") +
+  theme_minimal()
+```
+
+## 3. News Entities Analysis (news_entities.json)
+
+```{r}
+entities_data <- fromJSON("news_entities.json", flatten = TRUE)
+
+entities_tidy <- entities_data %>%
+  unnest(entities) %>%
+  as_tibble()
+
+glimpse(entities_tidy)
+```
+
+### 3.1 Entity Frequency Analysis
+
+```{r}
+top_entities <- entities_tidy %>%
+  count(text, sort = TRUE) %>%
+  head(20)
+
+ggplot(top_entities, aes(x = reorder(text, n), y = n)) +
+  geom_bar(stat = "identity", fill = "forestgreen") +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Entities in News Headlines",
+       x = "Entity",
+       y = "Count") +
+  theme_minimal()
+
+ggplot(entities_tidy, aes(x = similarity_score)) +
+  geom_histogram(fill = "forestgreen", bins = 30) +
+  labs(title = "Distribution of Entity Similarity Scores",
+       x = "Similarity Score",
+       y = "Count") +
+  theme_minimal()
+```
+
+### 3.2 Entity Types Analysis
+
+```{r}
+entities_tidy <- entities_tidy %>%
+  mutate(
+    domain = str_extract(dbpedia_uri, "(?<=resource/)[^:]+")
+  )
+
+domain_counts <- entities_tidy %>%
+  count(domain, sort = TRUE) %>%
+  head(20)
+
+ggplot(domain_counts, aes(x = reorder(domain, n), y = n)) +
+  geom_bar(stat = "identity", fill = "forestgreen") +
+  coord_flip() +
+  labs(title = "Top 20 Entity Domains from DBpedia",
+       x = "Domain",
+       y = "Count") +
+  theme_minimal()
+```
+
+```{r}
+library(tidytext)
+library(wordcloud)
+library(textdata)
+```
+
+## 5. Advanced News Text Analysis
+
+
+### 5.1 N-gram Analysis for Common Phrases
+
+```{r}
+headline_bigrams <- news_data %>%
+  unnest_tokens(bigram, headline, token = "ngrams", n = 2) %>%
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word,
+         !word2 %in% stop_words$word) %>%
+  unite(bigram, word1, word2, sep = " ") %>%
+  count(bigram, sort = TRUE)
+
+ggplot(headline_bigrams %>% head(20), 
+       aes(x = reorder(bigram, n), y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Bigrams in Headlines",
+       x = "Bigram",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+## 6. Advanced Film Data Analysis
+
+### 6.1 Keyword Analysis
+
+```{r}
+keywords_df <- films_data %>%
+  mutate(keywords = str_remove_all(keywords, "\\[|\\]|\\'")) %>%
+  separate_rows(keywords, sep = ", ") %>%
+  filter(keywords != "")
+
+keyword_counts <- keywords_df %>%
+  count(keywords, sort = TRUE) %>%
+  filter(n > 5)  
+
+ggplot(keyword_counts %>% head(20), 
+       aes(x = reorder(keywords, n), y = n)) +
+  geom_bar(stat = "identity", fill = "darkorange") +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Keywords in Films",
+       x = "Keyword",
+       y = "Count") +
+  theme_minimal()
+```
+
+### 6.2 Production Company Analysis
+
+```{r}
+companies_df <- films_data %>%
+  mutate(production_companies = str_remove_all(production_companies, "\\[|\\]|\\'")) %>%
+  separate_rows(production_companies, sep = ", ") %>%
+  filter(production_companies != "")
+
+company_counts <- companies_df %>%
+  count(production_companies, sort = TRUE) %>%
+  head(20)
+
+ggplot(company_counts, 
+       aes(x = reorder(production_companies, n), y = n)) +
+  geom_bar(stat = "identity", fill = "darkorange") +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Production Companies",
+       x = "Company",
+       y = "Count") +
+  theme_minimal()
+```
+
+### 6.3 Relationship Between Variables
+
+```{r}
+ggplot(films_data, aes(x = budget, y = vote_average)) +
+  geom_point(alpha = 0.6, color = "darkorange") +
+  geom_smooth(method = "lm", color = "darkred") +
+  scale_x_continuous(labels = dollar) +
+  labs(title = "Film Budget vs. Average Rating",
+       x = "Budget",
+       y = "Average Rating") +
+  theme_minimal()
+
+ggplot(films_data, aes(x = runtime, y = vote_average)) +
+  geom_point(alpha = 0.6, color = "darkorange") +
+  geom_smooth(method = "lm", color = "darkred") +
+  labs(title = "Film Runtime vs. Average Rating",
+       x = "Runtime (minutes)",
+       y = "Average Rating") +
+  theme_minimal()
+```
+
+
+## 7. Advanced Visualizations
+
+### 7.1 Temporal Trends
+
+```{r}
+news_data %>%
+  mutate(pub_hour = hour(pub_date)) %>%
+  count(pub_hour) %>%
+  ggplot(aes(x = pub_hour, y = n)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(color = "steelblue", size = 2) +
+  labs(title = "News Article Publication by Hour of Day",
+       x = "Hour of Day",
+       y = "Number of Articles") +
+  theme_minimal()
+
+films_data %>%
+  group_by(release_year) %>%
+  summarize(count = n(),
+            avg_rating = mean(vote_average, na.rm = TRUE)) %>%
+  ggplot(aes(x = release_year)) +
+  geom_bar(aes(y = count), stat = "identity", fill = "darkorange", alpha = 0.5) +
+  geom_line(aes(y = avg_rating * 10), color = "darkred", size = 1) +
+  scale_y_continuous(
+    name = "Number of Films",
+    sec.axis = sec_axis(~./10, name = "Average Rating")
+  ) +
+  labs(title = "Film Releases and Average Ratings by Year",
+       x = "Year") +
+  theme_minimal()
+```
