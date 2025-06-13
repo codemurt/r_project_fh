@@ -1,0 +1,205 @@
+---
+title: "stats"
+author: "Lebedev Egor"
+date: "2025-05-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(effectsize)
+```
+
+```{txt}
+H0: Conceptual Blending (CoT) does not produce better results than direct LLM generation
+H1: Conceptual Blending (CoT) produces better results than direct LLM generation
+```
+
+```{r}
+eval_data <- read_csv("eval_dataset_transformed.csv")
+
+# Convert to long format for analysis
+long_data <- eval_data %>%
+  pivot_longer(
+    cols = -c(llm_avg, CoT_avg),
+    names_to = c("method", "metric"),
+    names_sep = "_",
+    values_to = "score"
+  ) %>%
+  mutate(
+    method = factor(method, levels = c("llm", "CoT")),
+    metric = factor(metric, levels = c("humor", "relevance", "creativity", "clarity"))
+  )
+
+# Create dataset for average scores comparison
+avg_data <- eval_data %>%
+  select(llm_avg, CoT_avg) %>%
+  mutate(id = row_number()) %>%
+  pivot_longer(
+    cols = -id,
+    names_to = "method",
+    values_to = "score"
+  ) %>%
+  mutate(method = factor(method, levels = c("llm_avg", "CoT_avg")))
+```
+```{r}
+long_data %>%
+  group_by(method) %>%
+  get_summary_stats(score, type = "common")
+
+long_data %>%
+  group_by(method, metric) %>%
+  get_summary_stats(score, type = "common")
+```
+
+```{r}
+ggplot(long_data, aes(x = method, y = score, fill = method)) +
+  geom_boxplot(alpha = 0.8) +
+  facet_wrap(~metric, nrow = 2) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Score Distribution by Method and Metric",
+       x = "Method",
+       y = "Score") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggplot(avg_data, aes(x = method, y = score, fill = method)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.1, alpha = 0.5) +
+  scale_fill_manual(values = c("#66C2A5", "#FC8D62")) +
+  labs(title = "Comparison of Average Scores",
+       subtitle = "LLM vs CoT Conceptual Blending",
+       x = "Method",
+       y = "Average Score") +
+  theme_minimal()
+```
+```{r}
+shapiro_data <- avg_data %>%
+  group_by(method) %>%
+  shapiro_test(score)
+shapiro_data
+
+t_test_result <- t.test(eval_data$llm_avg, eval_data$CoT_avg, 
+                        paired = TRUE, alternative = "less")
+t_test_result
+```
+```{txt}
+- Both distributions (LLM and CoT average scores) show statistically significant deviations from normality (p < 0.001 for both)
+- The Shapiro-Wilk test statistics (0.74 for LLM, 0.86 for CoT) are both below 0.95, indicating non-normal distributions
+- Implication: Non-parametric tests should be preferred for analysis, though with n=100, parametric tests are often considered robust against normality violations
+
+- No significant difference between LLM and CoT average scores (p = 0.769 > 0.05)
+- The positive mean difference (0.056) suggests LLM scores are slightly higher, but not statistically significant
+- Key finding: The hypothesis that CoT Conceptual Blending produces better headlines is not supported for overall scores
+```
+
+```{r}
+# Correct effect size calculation
+cohen_d_result <- cohens_d(
+  x = eval_data$llm_avg,
+  y = eval_data$CoT_avg,
+  paired = TRUE,
+  ci = 0.95
+)
+cohen_d_result
+```
+
+```{txt}
+Negligible effect size (d = 0.07) according to Cohen`s conventions: d < 0.2 = negligible
+Practical significance: Even if statistical significance existed, the effect is too small to be practically meaningful
+
+```
+
+```{r}
+metric_analysis <- function(metric_name) {
+  # Extract relevant columns
+  llm_scores <- eval_data[[paste0("llm_", metric_name, "_score")]]
+  cot_scores <- eval_data[[paste0("CoT_", metric_name, "_score")]]
+  
+  # Paired t-test
+  t_test <- t.test(llm_scores, cot_scores, paired = TRUE)
+  
+  # Effect size
+  d <- cohens_d(llm_scores, cot_scores, paired = TRUE)
+  
+  # Return results
+  tibble(
+    metric = metric_name,
+    mean_llm = mean(llm_scores),
+    mean_cot = mean(cot_scores),
+    mean_diff = mean(llm_scores - cot_scores),
+    t_statistic = t_test$statistic,
+    df = t_test$parameter,
+    p_value = t_test$p.value,
+    cohens_d = d$Cohens_d,
+    ci_low = d$CI_low,
+    ci_high = d$CI_high
+  )
+}
+
+# Apply to all metrics
+metric_results <- map_dfr(
+  c("humor", "relevance", "creativity", "clarity"),
+  metric_analysis
+) %>%
+  mutate(
+    p_adj = p.adjust(p_value, method = "bonferroni"),
+    significance = ifelse(p_adj < 0.05, "**", ifelse(p_value < 0.05, "*", ""))
+  )
+
+metric_results
+```
+
+```{txt}
+Insights:
+- Basic LLM approach yields more understandable headlines
+- Conceptual blending may boost creativity but not consistently
+- Both approaches perform similarly on core humor metrics
+
+```
+
+```{r}
+ggplot(metric_results, aes(x = metric, y = cohens_d, 
+                           ymin = ci_low, ymax = ci_high,
+                           color = metric)) +
+  geom_pointrange(size = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Effect Sizes by Metric (Cohen's d with 95% CI)",
+       x = "Evaluation Metric",
+       y = "Cohen's d (LLM vs CoT)") +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
+  coord_flip()
+
+long_data %>%
+  group_by(method, metric) %>%
+  summarise(mean_score = mean(score), .groups = "drop") %>%
+  ggplot(aes(x = metric, y = mean_score, fill = method)) +
+  geom_col(position = position_dodge(), alpha = 0.8) +
+  geom_text(aes(label = round(mean_score, 2)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5) +
+  labs(title = "Mean Scores by Method and Metric",
+       x = "Metric",
+       y = "Mean Score") +
+  scale_fill_manual(values = c("#66C2A5", "#FC8D62")) +
+  theme_minimal() +
+  ylim(0, max(long_data$score) * 1.1)
+```
+
+```{txt}
+Overall Conclusions
+
+Hypothesis Rejection. The hypothesis that Conceptual Blending (CoT) produces better headlines than basic LLM is not supported by the data. No significant difference in overall scores (p = 0.769) and negligible effect size (d = 0.07).
+
+Metric-Specific Insights:
+- Clarity Advantage: Basic LLM produces significantly clearer headlines
+- Creativity Potential: CoT shows non-significant creativity gains
+- Humor Parity: Both approaches perform equally well on humor generation
+```
