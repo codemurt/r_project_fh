@@ -171,14 +171,14 @@ films_data <- films_data %>%
   )
 
 ggplot(films_data, aes(x = release_year)) +
-  geom_bar(fill = "darkorange") +
+  geom_bar(fill = "steelblue") +
   labs(title = "Distribution of Films by Release Year",
        x = "Year",
        y = "Count") +
   theme_minimal()
 
 ggplot(films_data, aes(x = release_month)) +
-  geom_bar(fill = "darkorange") +
+  geom_bar(fill = "steelblue") +
   labs(title = "Distribution of Films by Release Month",
        x = "Month",
        y = "Count") +
@@ -194,14 +194,14 @@ rating_summary <- films_data %>%
 kable(rating_summary)
 
 ggplot(films_data, aes(x = vote_average)) +
-  geom_histogram(fill = "darkorange", bins = 30) +
+  geom_histogram(fill = "steelblue", bins = 30) +
   labs(title = "Distribution of Vote Averages",
        x = "Average Rating",
        y = "Count") +
   theme_minimal()
 
 ggplot(films_data, aes(x = popularity)) +
-  geom_histogram(fill = "darkorange", bins = 30) +
+  geom_histogram(fill = "steelblue", bins = 30) +
   labs(title = "Distribution of Popularity Scores",
        x = "Popularity",
        y = "Count") +
@@ -217,7 +217,7 @@ financial_summary <- films_data %>%
 kable(financial_summary)
 
 ggplot(films_data, aes(x = budget, y = revenue)) +
-  geom_point(alpha = 0.6, color = "darkorange") +
+  geom_point(alpha = 0.6, color = "steelblue") +
   scale_x_continuous(labels = dollar) +
   scale_y_continuous(labels = dollar) +
   labs(title = "Film Revenue vs Budget",
@@ -226,7 +226,7 @@ ggplot(films_data, aes(x = budget, y = revenue)) +
   theme_minimal()
 
 ggplot(films_data, aes(x = runtime)) +
-  geom_histogram(fill = "darkorange", bins = 30) +
+  geom_histogram(fill = "steelblue", bins = 30) +
   labs(title = "Distribution of Film Runtimes",
        x = "Runtime (minutes)",
        y = "Count") +
@@ -245,7 +245,7 @@ genre_counts <- genres_df %>%
   count(genres, sort = TRUE)
 
 ggplot(genre_counts, aes(x = reorder(genres, n), y = n)) +
-  geom_bar(stat = "identity", fill = "darkorange") +
+  geom_bar(stat = "identity", fill = "steelblue") +
   coord_flip() +
   labs(title = "Film Count by Genre",
        x = "Genre",
@@ -273,7 +273,7 @@ top_entities <- entities_tidy %>%
   head(20)
 
 ggplot(top_entities, aes(x = reorder(text, n), y = n)) +
-  geom_bar(stat = "identity", fill = "forestgreen") +
+  geom_bar(stat = "identity", fill = "steelblue") +
   coord_flip() +
   labs(title = "Top 20 Most Frequent Entities in News Headlines",
        x = "Entity",
@@ -281,7 +281,7 @@ ggplot(top_entities, aes(x = reorder(text, n), y = n)) +
   theme_minimal()
 
 ggplot(entities_tidy, aes(x = similarity_score)) +
-  geom_histogram(fill = "forestgreen", bins = 30) +
+  geom_histogram(fill = "steelblue", bins = 30) +
   labs(title = "Distribution of Entity Similarity Scores",
        x = "Similarity Score",
        y = "Count") +
@@ -301,7 +301,7 @@ domain_counts <- entities_tidy %>%
   head(20)
 
 ggplot(domain_counts, aes(x = reorder(domain, n), y = n)) +
-  geom_bar(stat = "identity", fill = "forestgreen") +
+  geom_bar(stat = "identity", fill = "steelblue") +
   coord_flip() +
   labs(title = "Top 20 Entity Domains from DBpedia",
        x = "Domain",
@@ -355,7 +355,7 @@ keyword_counts <- keywords_df %>%
 
 ggplot(keyword_counts %>% head(20), 
        aes(x = reorder(keywords, n), y = n)) +
-  geom_bar(stat = "identity", fill = "darkorange") +
+  geom_bar(stat = "identity", fill = "steelblue") +
   coord_flip() +
   labs(title = "Top 20 Most Frequent Keywords in Films",
        x = "Keyword",
@@ -377,7 +377,7 @@ company_counts <- companies_df %>%
 
 ggplot(company_counts, 
        aes(x = reorder(production_companies, n), y = n)) +
-  geom_bar(stat = "identity", fill = "darkorange") +
+  geom_bar(stat = "identity", fill = "steelblue") +
   coord_flip() +
   labs(title = "Top 20 Most Frequent Production Companies",
        x = "Company",
@@ -389,7 +389,7 @@ ggplot(company_counts,
 
 ```{r}
 ggplot(films_data, aes(x = budget, y = vote_average)) +
-  geom_point(alpha = 0.6, color = "darkorange") +
+  geom_point(alpha = 0.6, color = "steelblue") +
   geom_smooth(method = "lm", color = "darkred") +
   scale_x_continuous(labels = dollar) +
   labs(title = "Film Budget vs. Average Rating",
@@ -398,7 +398,7 @@ ggplot(films_data, aes(x = budget, y = vote_average)) +
   theme_minimal()
 
 ggplot(films_data, aes(x = runtime, y = vote_average)) +
-  geom_point(alpha = 0.6, color = "darkorange") +
+  geom_point(alpha = 0.6, color = "steelblue") +
   geom_smooth(method = "lm", color = "darkred") +
   labs(title = "Film Runtime vs. Average Rating",
        x = "Runtime (minutes)",
@@ -428,7 +428,7 @@ films_data %>%
   summarize(count = n(),
             avg_rating = mean(vote_average, na.rm = TRUE)) %>%
   ggplot(aes(x = release_year)) +
-  geom_bar(aes(y = count), stat = "identity", fill = "darkorange", alpha = 0.5) +
+  geom_bar(aes(y = count), stat = "identity", fill = "steelblue", alpha = 0.5) +
   geom_line(aes(y = avg_rating * 10), color = "darkred", size = 1) +
   scale_y_continuous(
     name = "Number of Films",
