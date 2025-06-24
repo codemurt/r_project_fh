@@ -23,7 +23,9 @@ Recent advances in large language models (LLMs) have enabled new approaches to c
 Primary research question: Does Conceptual Blending (CoT) produce better humorous headlines than direct LLM generation?
 
 Formal hypotheses:
+
 H0: Conceptual Blending (CoT) does not produce better results than direct LLM generation
+
 H1: Conceptual Blending (CoT) produces better results than direct LLM generation
 
 Secondary questions:
@@ -154,7 +156,9 @@ ggplot(avg_data, aes(x = method, y = score, fill = method)) +
 ```
 
 ## 3.3 Statistical Analysis
+
 ### 3.3.1 Normality Checks
+
 ```{r}
 shapiro_data <- avg_data %>%
   group_by(method) %>%
@@ -175,7 +179,28 @@ t_test_result
 - The positive mean difference (0.056) suggests LLM scores are slightly higher, but not statistically significant
 - Key finding: The hypothesis that CoT Conceptual Blending produces better headlines is not supported for overall scores
 
+```{r}
+ggplot(avg_data, aes(sample = score, color = method)) +
+  stat_qq(size = 2.5, alpha = 0.8) + 
+  stat_qq_line(linewidth = 1) +
+  facet_wrap(~method, nrow = 1) +
+  scale_color_manual(values = method_palette) +
+  labs(title = "QQ-Plot for Average Scores Normality Check",
+       subtitle = "Comparison with Normal Distribution",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        strip.text = element_text(face = "bold", size = 12)) +
+  geom_text(data = shapiro_data, 
+            aes(x = -Inf, y = Inf, 
+                label = paste0("Shapiro-Wilk: p = ", format.pval(p, digits = 3))),
+            hjust = -0.15, vjust = 1.8, color = "black", size = 5, inherit.aes = FALSE)
+```
+
 ### 3.3.2 Effect Size
+
 ```{r}
 # Correct effect size calculation
 cohen_d_result <- cohens_d(
@@ -263,6 +288,7 @@ long_data %>%
   theme_minimal() +
   ylim(0, max(long_data$score) * 1.1)
 ```
+
 ### 3.3.5 Non-parametric Tests (Robustness Check)
 
 ```{r}
