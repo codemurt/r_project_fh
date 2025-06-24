@@ -194,17 +194,13 @@ Practical significance: Even if statistical significance existed, the effect is 
 
 ```{r}
 metric_analysis <- function(metric_name) {
-  # Extract relevant columns
   llm_scores <- eval_data[[paste0("llm_", metric_name, "_score")]]
   cot_scores <- eval_data[[paste0("CoT_", metric_name, "_score")]]
   
-  # Paired t-test
   t_test <- t.test(llm_scores, cot_scores, paired = TRUE)
   
-  # Effect size
   d <- cohens_d(llm_scores, cot_scores, paired = TRUE)
   
-  # Return results
   tibble(
     metric = metric_name,
     mean_llm = mean(llm_scores),
@@ -219,7 +215,6 @@ metric_analysis <- function(metric_name) {
   )
 }
 
-# Apply to all metrics
 metric_results <- map_dfr(
   c("humor", "relevance", "creativity", "clarity"),
   metric_analysis
@@ -291,7 +286,6 @@ When examining all metrics collectively, there's a statistically significant dif
 ### 3.3.6 Rating Consistency Analysis
 
 ```{r}
-# Spearman correlation
 spearman_cor <- cor.test(eval_data$llm_avg, eval_data$CoT_avg, 
                          method = "spearman")
 spearman_cor
