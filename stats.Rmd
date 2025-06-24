@@ -51,6 +51,9 @@ library(ggpubr)
 library(rstatix)
 library(effectsize)
 library(caret)
+library(BayesFactor)
+library(lme4)
+library(ggcorrplot)
 ```
 
 ## 2.2 Dataset Description
@@ -58,10 +61,13 @@ library(caret)
 ```{r}
 eval_data <- read_csv("eval_dataset_transformed.csv")
 
-# Convert to long format for analysis
+eval_data <- eval_data %>%
+  mutate(id = row_number())
+
+# Преобразование в long-формат с сохранением id
 long_data <- eval_data %>%
   pivot_longer(
-    cols = -c(llm_avg, CoT_avg),
+    cols = -c(id, llm_avg, CoT_avg),
     names_to = c("method", "metric"),
     names_sep = "_",
     values_to = "score"
@@ -70,6 +76,7 @@ long_data <- eval_data %>%
     method = factor(method, levels = c("llm", "CoT")),
     metric = factor(metric, levels = c("humor", "relevance", "creativity", "clarity"))
   )
+
 
 # Create dataset for average scores comparison
 avg_data <- eval_data %>%
@@ -261,9 +268,119 @@ long_data %>%
   theme_minimal() +
   ylim(0, max(long_data$score) * 1.1)
 ```
+### 3.3.5 Non-parametric Tests (Robustness Check)
+
+```{r}
+wilcox_avg <- wilcox.test(eval_data$llm_avg, eval_data$CoT_avg, 
+                          paired = TRUE)
+wilcox_avg
+
+dunn_test <- long_data %>%
+  dunn_test(score ~ method, p.adjust.method = "bonferroni")
+dunn_test
+```
+
+V = 2028.5, p-value = 0.08227
+
+There is no statistically significant difference in median average scores between LLM and CoT methods (p = 0.082 > 0.05). The test shows marginal evidence (approaching significance) that LLM performs slightly better, but this difference doesn't reach conventional significance levels. This aligns with our earlier t-test findings. 
+
+Dunn Test (Post-hoc for Friedman): p.adj = 0.0293
+
+When examining all metrics collectively, there's a statistically significant difference between methods (p < 0.05) after multiple comparison adjustment. The negative test statistic (-2.18) indicates LLM outperforms CoT overall, primarily driven by the clarity metric as shown in previous analyses.
+
+### 3.3.6 Rating Consistency Analysis
+
+```{r}
+# Spearman correlation
+spearman_cor <- cor.test(eval_data$llm_avg, eval_data$CoT_avg, 
+                         method = "spearman")
+spearman_cor
+```
+```{r}
+cor_df <- eval_data %>%
+  select(llm_avg, CoT_avg, ends_with("_score")) %>%
+  rename(
+    `LLM Avg` = llm_avg,
+    `CoT Avg` = CoT_avg,
+    `LLM Humor` = llm_humor_score,
+    `CoT Humor` = CoT_humor_score,
+    `LLM Relevance` = llm_relevance_score,
+    `CoT Relevance` = CoT_relevance_score,
+    `LLM Creativity` = llm_creativity_score,
+    `CoT Creativity` = CoT_creativity_score,
+    `LLM Clarity` = llm_clarity_score,
+    `CoT Clarity` = CoT_clarity_score
+  )
+
+cor_matrix <- cor(cor_df, method = "spearman")
+
+ggcorrplot(cor_matrix, 
+           hc.order = TRUE,
+           type = "lower",
+           lab = TRUE,
+           lab_size = 3,
+           colors = c("#E46726", "white", "#6D9EC1")) +
+  labs(title = "Spearman Correlation Matrix",
+       subtitle = "Weak correlation between LLM and CoT performance (ρ = 0.08)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+rho = 0.075, p-value = 0.456
+
+There is no meaningful correlation (ρ ~ 0.08) between LLM and CoT scores for the same headlines (p = 0.456). This suggests:
+
+- Headlines that scored well with one method didn't necessarily score well with the other
+- The two methods produce qualitatively different types of humor
+- Performance is headline-specific rather than method-driven
+
+### 3.3.7 Bayesian t-test
+
+```{r}
+bayes_ttest <- ttestBF(eval_data$llm_avg, eval_data$CoT_avg, paired = TRUE)
+bayes_factor <- exp(bayes_ttest@bayesFactor$bf)
+
+bayes_factor
+```
+```{r}
+bayes_df <- data.frame(
+    Hypothesis = c("H0 (No difference)", "H1 (Difference exists)"),
+    Probability = c(1/(1+bayes_factor), bayes_factor/(1+bayes_factor))
+  )
+  
+  ggplot(bayes_df, aes(x = Hypothesis, y = Probability, fill = Hypothesis)) +
+    geom_col(alpha = 0.8, width = 0.6) +
+    geom_text(aes(label = paste0(round(Probability*100, 1), "%")), 
+              vjust = -0.5, size = 4) +
+    scale_fill_manual(values = c("#4E79A7", "#F28E2B")) +
+    labs(title = "Bayesian Probability of Hypotheses",
+         subtitle = paste0("BF10 = ", round(bayes_factor, 3)),
+         y = "Posterior Probability") +
+    theme_minimal() +
+    ylim(0, 1) +
+    theme(legend.position = "none")
+```
+
+Strong evidence in favor of the null hypothesis (BF10 < 1). The data are approximately 7 times more likely (6.94) under H0 (no difference between methods) than H1 (CoT better than LLM). This provides robust confirmation that CoT doesn't improve humor quality.
+
+### 3.3.8 Regression Analysis
+
+```{r}
+lmm_model <- lmer(score ~ method * metric + (1 | id), data = long_data)
+lmm_summary <- summary(lmm_model)
+lmm_anova <- anova(lmm_model)
+lmm_summary
+summary(lmm_anova)
+```
+- `methodCoT: -0.08 (t = -0.765)` -> No main effect of method
+- `metricrelevance: -0.22 (t = -2.104)` -> Relevance scores significantly lower than humor
+- `metriccreativity: 0.38 (t = 3.635)` -> Creativity scores significantly higher than humor
+- `methodCoT:metricclarity: -0.17 (t = -1.150)` -> Marginal clarity disadvantage for CoT
+
+
 
 
 # 4. Discussion
+
 ## 4.1 Key Findings
 
 1. Primary Hypothesis: The hypothesis that Conceptual Blending (CoT) produces better headlines than basic LLM is not supported (p = `r round(t_test_result$p.value, 3)`, d = `r round(cohen_d_result$Cohens_d, 2)`).
